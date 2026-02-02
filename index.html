@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tunes</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <div id="app">
+      <header>
+        <h1>tunes</h1>
+      </header>
+
+      <main>
+        <div id="track-list">
+          <div id="empty-state">
+            <p>No music found</p>
+            <p class="hint">Add music files to <code id="music-path"></code></p>
+          </div>
+          <ul id="tracks"></ul>
+        </div>
+      </main>
+
+      <footer id="player">
+        <div id="now-playing">
+          <span id="track-title">Not playing</span>
+          <span id="track-artist"></span>
+        </div>
+        <div id="controls">
+          <button id="prev-btn" title="Previous" disabled>⏮</button>
+          <button id="play-pause-btn" title="Play" disabled>▶</button>
+          <button id="next-btn" title="Next" disabled>⏭</button>
+          <button id="stop-btn" title="Stop" disabled>◼</button>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
