@@ -6,6 +6,7 @@ use std::io::BufReader;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Mutex;
 use std::thread;
+use std::time::Instant;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum PlaybackStatus {
@@ -20,6 +21,8 @@ pub struct PlaybackState {
     pub current_track_path: Option<String>,
     pub current_track_title: Option<String>,
     pub current_track_artist: Option<String>,
+    pub position_secs: f64,
+    pub duration_secs: f64,
 }
 
 #[derive(Debug)]
@@ -28,6 +31,7 @@ pub enum AudioCommand {
         path: String,
         title: String,
         artist: String,
+        duration_secs: f64,
     },
     Pause,
     Resume,
@@ -55,6 +59,9 @@ impl AudioThread {
         let mut current_track_path: Option<String> = None;
         let mut current_track_title: Option<String> = None;
         let mut current_track_artist: Option<String> = None;
+        let mut playback_start: Option<Instant> = None;
+        let mut paused_elapsed: f64 = 0.0;
+        let mut track_duration: f64 = 0.0;
 
         loop {
             match self.command_rx.recv() {
@@ -63,6 +70,7 @@ impl AudioThread {
                         path,
                         title,
                         artist,
+                        duration_secs,
                     } => {
                         // Stop any current playback
                         if let Some(s) = sink.take() {
@@ -81,6 +89,9 @@ impl AudioThread {
                                         current_track_path = Some(path);
                                         current_track_title = Some(title);
                                         current_track_artist = Some(artist);
+                                        track_duration = duration_secs;
+                                        playback_start = Some(Instant::now());
+                                        paused_elapsed = 0.0;
                                     }
                                     Err(e) => {
                                         eprintln!("Failed to decode audio: {}", e);
@@ -95,11 +106,18 @@ impl AudioThread {
                     AudioCommand::Pause => {
                         if let Some(ref s) = sink {
                             s.pause();
+                            // Track elapsed time when pausing
+                            if let Some(start) = playback_start {
+                                paused_elapsed += start.elapsed().as_secs_f64();
+                                playback_start = None;
+                            }
                         }
                     }
                     AudioCommand::Resume => {
                         if let Some(ref s) = sink {
                             s.play();
+                            // Restart timing when resuming
+                            playback_start = Some(Instant::now());
                         }
                     }
                     AudioCommand::Stop => {
@@ -109,6 +127,9 @@ impl AudioThread {
                         current_track_path = None;
                         current_track_title = None;
                         current_track_artist = None;
+                        playback_start = None;
+                        paused_elapsed = 0.0;
+                        track_duration = 0.0;
                     }
                     AudioCommand::GetState(response_tx) => {
                         let status = match &sink {
@@ -118,14 +139,28 @@ impl AudioThread {
                             None => PlaybackStatus::Stopped,
                         };
 
+                        // Calculate current position
+                        let position = if status == PlaybackStatus::Playing {
+                            if let Some(start) = playback_start {
+                                paused_elapsed + start.elapsed().as_secs_f64()
+                            } else {
+                                paused_elapsed
+                            }
+                        } else if status == PlaybackStatus::Paused {
+                            paused_elapsed
+                        } else {
+                            0.0
+                        };
+
                         // Clear track info if playback finished
-                        let (path, title, artist) = if status == PlaybackStatus::Stopped {
-                            (None, None, None)
+                        let (path, title, artist, duration) = if status == PlaybackStatus::Stopped {
+                            (None, None, None, 0.0)
                         } else {
                             (
                                 current_track_path.clone(),
                                 current_track_title.clone(),
                                 current_track_artist.clone(),
+                                track_duration,
                             )
                         };
 
@@ -134,6 +169,8 @@ impl AudioThread {
                             current_track_path: path,
                             current_track_title: title,
                             current_track_artist: artist,
+                            position_secs: position,
+                            duration_secs: duration,
                         };
 
                         let _ = response_tx.send(state);

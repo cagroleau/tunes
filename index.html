@@ -25,15 +25,24 @@
       </main>
 
       <footer id="player">
-        <div id="now-playing">
-          <span id="track-title">Not playing</span>
-          <span id="track-artist"></span>
+        <div>
+          <div id="now-playing">
+            <span id="track-title">Not playing</span>
+            <span id="track-artist"></span>
+          </div>
+          <div id="controls">
+            <button id="prev-btn" title="Previous" disabled>⏮</button>
+            <button id="play-pause-btn" title="Play" disabled>▶</button>
+            <button id="next-btn" title="Next" disabled>⏭</button>
+            <button id="stop-btn" title="Stop" disabled>◼</button>
+          </div>
         </div>
-        <div id="controls">
-          <button id="prev-btn" title="Previous" disabled>⏮</button>
-          <button id="play-pause-btn" title="Play" disabled>▶</button>
-          <button id="next-btn" title="Next" disabled>⏭</button>
-          <button id="stop-btn" title="Stop" disabled>◼</button>
+        <div id="progress-container">
+          <span id="current-time">0:00</span>
+          <div id="progress-bar">
+            <div id="progress-fill"></div>
+          </div>
+          <span id="total-time">0:00</span>
         </div>
       </footer>
     </div>

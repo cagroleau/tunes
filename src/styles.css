@@ -116,11 +116,50 @@ main {
 
 #player {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   padding: 12px 20px;
   background: #ffffff;
   border-top: 1px solid #d2d2d7;
+  gap: 8px;
+}
+
+#player > :first-child {
+  display: flex;
+  align-items: center;
   gap: 16px;
+}
+
+#progress-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+#current-time,
+#total-time {
+  font-size: 11px;
+  color: #86868b;
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  text-align: center;
+}
+
+#progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #e8e8ed;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+#progress-fill {
+  height: 100%;
+  background: #007aff;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s linear;
 }
 
 #now-playing {
@@ -227,6 +266,15 @@ main {
   #player {
     background: #2d2d2f;
     border-top-color: #3d3d3f;
+  }
+
+  #current-time,
+  #total-time {
+    color: #98989d;
+  }
+
+  #progress-bar {
+    background: #48484a;
   }
 
   #controls button {

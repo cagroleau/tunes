@@ -22,12 +22,14 @@ fn play_track(
     path: String,
     title: String,
     artist: String,
+    duration_secs: u64,
     state: State<AppState>,
 ) -> Result<(), String> {
     state.send_command(AudioCommand::Play {
         path,
         title,
         artist,
+        duration_secs: duration_secs as f64,
     })
 }
 
