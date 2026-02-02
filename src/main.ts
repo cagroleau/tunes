@@ -27,6 +27,7 @@ interface PlaybackState {
 
 let tunes: Tune[] = [];
 let currentTunePath: string | null = null;
+let lastPlaybackStatus: PlaybackState["status"] = "Stopped";
 
 // DOM elements
 let tunesEl: HTMLUListElement;
@@ -100,6 +101,7 @@ async function playTune(tune: Tune) {
       artist,
     });
     currentTunePath = tune.path;
+    lastPlaybackStatus = "Playing";
     updatePlayerUI("Playing", title, artist);
     renderTunes();
   } catch (e) {
@@ -124,10 +126,18 @@ async function togglePlayPause() {
     const state = (await invoke("get_playback_state")) as PlaybackState;
     if (state.status === "Playing") {
       await invoke("pause");
+      lastPlaybackStatus = "Paused";
       updatePlayerUI("Paused", state.current_track_title, state.current_track_artist);
     } else if (state.status === "Paused") {
       await invoke("resume");
+      lastPlaybackStatus = "Playing";
       updatePlayerUI("Playing", state.current_track_title, state.current_track_artist);
+    } else if (state.status === "Stopped" && currentTunePath) {
+      // Restart the current track
+      const tune = tunes.find((t) => t.path === currentTunePath);
+      if (tune) {
+        await playTune(tune);
+      }
     }
   } catch (e) {
     console.error("Failed to toggle play/pause:", e);
@@ -137,6 +147,7 @@ async function togglePlayPause() {
 async function stopPlayback() {
   try {
     await invoke("stop");
+    lastPlaybackStatus = "Stopped";
     // Keep currentTunePath so the track stays selected
     const tune = tunes.find((t) => t.path === currentTunePath);
     if (tune) {
@@ -160,7 +171,8 @@ function updatePlayerUI(
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < tunes.length - 1;
 
-  if (status === "Stopped" || !title) {
+  if (!title) {
+    // No track selected at all
     trackTitleEl.textContent = "Not playing";
     trackArtistEl.textContent = "";
     playPauseBtn.textContent = "▶";
@@ -170,19 +182,28 @@ function updatePlayerUI(
     prevBtn.disabled = true;
     nextBtn.disabled = true;
   } else {
+    // Track is selected
     trackTitleEl.textContent = title;
     trackArtistEl.textContent = artist || "";
-    playPauseBtn.disabled = false;
-    stopBtn.disabled = false;
     prevBtn.disabled = !hasPrev;
     nextBtn.disabled = !hasNext;
 
     if (status === "Playing") {
       playPauseBtn.textContent = "⏸";
       playPauseBtn.title = "Pause";
+      playPauseBtn.disabled = false;
+      stopBtn.disabled = false;
+    } else if (status === "Paused") {
+      playPauseBtn.textContent = "▶";
+      playPauseBtn.title = "Resume";
+      playPauseBtn.disabled = false;
+      stopBtn.disabled = false;
     } else {
+      // Stopped - show play button, disable stop (already stopped)
       playPauseBtn.textContent = "▶";
       playPauseBtn.title = "Play";
+      playPauseBtn.disabled = false;
+      stopBtn.disabled = true;
     }
   }
 }
@@ -210,8 +231,12 @@ async function pollPlaybackState() {
   try {
     const state = (await invoke("get_playback_state")) as PlaybackState;
 
-    // Check if track finished playing - autoplay next
-    if (state.status === "Stopped" && currentTunePath !== null) {
+    // Only autoplay if we were playing and now stopped (track finished naturally)
+    if (
+      state.status === "Stopped" &&
+      lastPlaybackStatus === "Playing" &&
+      currentTunePath !== null
+    ) {
       const currentIndex = getCurrentTuneIndex();
       const hasNext = currentIndex >= 0 && currentIndex < tunes.length - 1;
 
@@ -219,8 +244,9 @@ async function pollPlaybackState() {
         // Autoplay next track
         await playTune(tunes[currentIndex + 1]);
       } else {
-        // No more tracks, stop
+        // No more tracks, clear selection
         currentTunePath = null;
+        lastPlaybackStatus = "Stopped";
         updatePlayerUI("Stopped", null, null);
         renderTunes();
       }
