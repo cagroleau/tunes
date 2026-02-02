@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Tauri v2 desktop music player that reads from ~/Music/tunes and provides basic playback controls. Uses vanilla TypeScript frontend and Rust backend with rodio for audio playback.
+Tauri v2 desktop music player that reads from ~/Music/tunes and provides full playback controls including skip, autoplay, and real-time library updates. Uses vanilla TypeScript frontend and Rust backend with rodio for audio playback.
 
 ## Commands
 
@@ -26,9 +26,10 @@ cd src-tauri && cargo add <crate>
 ## Architecture
 
 **Frontend (`src/`)**:
-- `main.ts` - App logic, IPC calls, DOM manipulation, event listening
+- `main.ts` - App logic, IPC calls, DOM manipulation, event listening, playback state tracking
 - `styles.css` - Minimal Apple-style UI with dark mode support
 - Uses `@tauri-apps/api/core` for IPC and `@tauri-apps/api/event` for backend events
+- Tracks `lastPlaybackStatus` to distinguish natural track endings from manual stops
 
 **Backend (`src-tauri/src/`)**:
 - `lib.rs` - Tauri command handlers, app setup, filesystem watcher initialization
@@ -37,9 +38,9 @@ cd src-tauri && cargo add <crate>
 
 **Audio Thread Pattern**: Because rodio's `OutputStream` is not `Send`, audio playback runs on a dedicated thread that receives commands via `mpsc` channel. The `AppState` holds only a `Sender<AudioCommand>`.
 
-**Filesystem Watching**: Uses `notify` crate to watch ~/Music/tunes. Changes are debounced (500ms) before rescanning and emitting `library-changed` event to frontend.
+**Filesystem Watching**: Uses `notify` crate to watch ~/Music/tunes for audio file changes (ignores library.json to prevent feedback loops). Changes are debounced (500ms) before rescanning and emitting `library-changed` event to frontend.
 
-**Library Persistence**: Library data stored in `~/Music/tunes/library.json` containing array of Tune objects with id, filename, path, and ID3 tags (title, artist, album, year, track_number, genre, duration).
+**Library Persistence**: Library data stored in `~/Music/tunes/library.json` containing array of Tune objects with id, filename, path, and ID3 tags (title, artist, album, year, track_number, genre, duration_secs).
 
 **IPC Commands**:
 - `get_music_directory()` - Returns ~/Music/tunes path
@@ -49,7 +50,26 @@ cd src-tauri && cargo add <crate>
 - `get_playback_state()` - Returns current status and track info
 
 **Events** (backend → frontend):
-- `library-changed` - Emitted when files are added/removed, payload is full Library
+- `library-changed` - Emitted when audio files are added/removed, payload is full Library
+
+## Key Features
+
+**Playback Controls**:
+- Play/Pause/Stop with visual feedback
+- Previous/Next track skip buttons (disabled at playlist boundaries)
+- Stop button keeps track selected, allowing replay
+- Play button on stopped track restarts it
+
+**Autoplay**:
+- Frontend tracks `lastPlaybackStatus` to detect natural track endings
+- Only autoplays next track when transitioning from Playing → Stopped
+- Manual stop (any state → Stopped via button) does not autoplay
+- Clears selection only when playlist ends
+
+**UI State Management**:
+- Track selection persists when stopped
+- Skip buttons enabled/disabled based on playlist position
+- Player controls reflect current state (Playing/Paused/Stopped)
 
 ## Key Dependencies
 
